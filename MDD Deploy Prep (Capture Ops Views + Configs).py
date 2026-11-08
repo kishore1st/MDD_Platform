@@ -12,7 +12,7 @@
 # MAGIC | The 7 source YAML configs (from the config volume) | `/Workspace/MDD_DataPlatform/bundle_configs/*.yaml` |
 # MAGIC | Sample landing files (`batch_001.csv` for src_001_customers + src_006_order_lines) | `/Workspace/MDD_DataPlatform/bundle_assets/landing_samples/<source>/` |
 # MAGIC
-# MAGIC All writes are new files under the bundle — nothing existing is modified. Read-only with respect to catalog data.
+# MAGIC Re-runs are refresh-safe: this notebook's own regenerable outputs (YAML configs, landing samples, capture JSON) are overwritten when they change; identical files are skipped; nothing outside the bundle is touched. Read-only with respect to catalog data.
 
 # COMMAND ----------
 
@@ -77,10 +77,22 @@ BUNDLE = "/Workspace/MDD_DataPlatform"
 import io, posixpath
 from databricks.sdk.errors.platform import DatabricksError
 
-def put_ws_file(ws_path, text):
-    """Create-only write: skips identical existing files, errors on differing content (never overwrites)."""
+def put_ws_file(ws_path, text, overwrite=False):
+    """Write a bundle file: skips identical content; overwrites differing content only when
+    overwrite=True (used for this notebook's own regenerable outputs — configs, samples, capture JSON);
+    otherwise errors on differing content so nothing unknown is ever clobbered."""
     w.workspace.mkdirs(posixpath.dirname(ws_path))
     data = text.encode("utf-8")
+    if overwrite:
+        try:
+            if w.workspace.download(ws_path).read() == data:
+                print(f"  skip (identical content already present): {ws_path}")
+                return
+        except DatabricksError:
+            pass  # not present yet — create below
+        w.workspace.upload(ws_path, data, format=ImportFormat.AUTO, overwrite=True)
+        print(f"  wrote (refreshed): {ws_path}")
+        return
     try:
         w.workspace.upload(ws_path, data, format=ImportFormat.AUTO, overwrite=False)
     except DatabricksError as e:
@@ -98,7 +110,7 @@ def get_vol_text(vol_path):
 cfg_files = [f.path for f in dbutils.fs.ls("/Volumes/mdd_platform/config/config_files") if f.path.endswith(".yaml")]
 print(f"config YAMLs: {[p.split('/')[-1] for p in cfg_files]}")
 for p in cfg_files:
-    put_ws_file(f"{BUNDLE}/bundle_configs/{p.split('/')[-1]}", get_vol_text(p))
+    put_ws_file(f"{BUNDLE}/bundle_configs/{p.split('/')[-1]}", get_vol_text(p), overwrite=True)
 
 # 3b. Sample landing files -> bundle_assets/landing_samples/<source>/
 # Landing layout can nest one extra level (<src>/<src>/batch_001.csv) or be flat — handle both.
@@ -116,13 +128,13 @@ def find_landing_file(src, fname):
 SAMPLES = [("src_001_customers", "batch_001.csv"), ("src_006_order_lines", "batch_001.csv")]
 for src, fname in SAMPLES:
     text = get_vol_text(find_landing_file(src, fname))
-    put_ws_file(f"{BUNDLE}/bundle_assets/landing_samples/{src}/{fname}", text)
+    put_ws_file(f"{BUNDLE}/bundle_assets/landing_samples/{src}/{fname}", text, overwrite=True)
     print(f"sample {src}/{fname}: {len(text)} chars")
 
 # 3c. Capture JSON -> bundle_assets/
 capture_doc = {"views": captured, "metric_views": capture_mv,
                "source_orchestration_job_id": "736782493336258"}
-put_ws_file(f"{BUNDLE}/bundle_assets/ops_views_capture.json", json.dumps(capture_doc, indent=2))
+put_ws_file(f"{BUNDLE}/bundle_assets/ops_views_capture.json", json.dumps(capture_doc, indent=2), overwrite=True)
 print("ops_views_capture.json written")
 
 # COMMAND ----------

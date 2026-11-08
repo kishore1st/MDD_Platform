@@ -1,6 +1,6 @@
 # MDD DataPlatform — Cross-Workspace Deployment Bundle
 
-Deploys the complete MDD metadata-driven pipeline framework to another Databricks workspace in **60–90 minutes**: 14 notebooks, 9 jobs, the 8-page Ops Dashboard, 4 SQL alerts, 7 YAML source configs, sample data, plus one-shot setup/cleanup/smoke-test jobs. **Multi-client:** the catalog name is parameterized — deploy with `--var="catalog_name=<client>"` and everything (catalog, volumes, configs, views, deployed notebook copies, dashboard, alert queries) lands under the client's own catalog.
+Deploys the complete MDD metadata-driven pipeline framework to another Databricks workspace in **60–90 minutes**: 14 notebooks, 9 jobs, the 8-page Ops Dashboard, 4 SQL alerts, 8 YAML source configs, sample data, plus one-shot setup/cleanup/smoke-test jobs. **Multi-client:** the catalog name is parameterized — deploy with `--var="catalog_name=<client>"` and everything (catalog, volumes, configs, views, deployed notebook copies, dashboard, alert queries) lands under the client's own catalog.
 
 ## What's in the bundle
 
@@ -12,7 +12,7 @@ Deploys the complete MDD metadata-driven pipeline framework to another Databrick
 | `MDD Deploy Prep (Capture …)` | Run once in the SOURCE workspace to capture ops-view DDL, configs, and samples into `bundle_assets/` + `bundle_configs/` |
 | `bundle_assets/ops_views_capture.json` | Captured `SHOW CREATE VIEW` DDL for all `ops.v_*` views + metric-view proofs |
 | `bundle_assets/mv_*.yaml` | Metric-view definitions (3 KPI metric views, recreated for the target) |
-| `bundle_configs/*.yaml` | The 7 source YAML configs (src_001 … src_008) |
+| `bundle_configs/*.yaml` | The 8 source YAML configs (src_001 … src_009) |
 | `bundle_assets/landing_samples/` | Sample CSVs for the smoke test |
 | `MDD Platform — Ops Dashboard.lvdash.json` | Ops Dashboard source (alert queries live in `resources/alerts.yml`, parameterized with `${var.catalog_name}`) |
 
@@ -58,7 +58,7 @@ databricks bundle deploy -t prod --var="catalog_name=<client>"
 databricks bundle run mdd_target_setup -t prod
 ```
 
-Creates the client catalog (from `catalog_name`) with schemas + volumes, loads the 7 YAML configs **with the client catalog substituted into each YAML**, runs the config loader + one framework run, then applies all ops views / metric views and patches **every deployed notebook + the Ops Dashboard** with the target's orchestration job ID and the client catalog. Fully idempotent — safe to re-run.
+Creates the client catalog (from `catalog_name`) with schemas + volumes, loads the 8 YAML configs **with the client catalog substituted into each YAML**, runs the config loader + one framework run, then applies all ops views / metric views and patches **every deployed notebook + the Ops Dashboard** with the target's orchestration job ID and the client catalog. Fully idempotent — safe to re-run.
 
 **Step 5 — Already-used target? Clean it first (optional, ~2 min).** If the target workspace already captured MDD data and you want a fresh start with your new file names, run the job `MDD Target Cleanup (mode)` from the target's Jobs UI (Run with parameters): `mode=full` + `confirm=true`, then re-run `mdd_target_setup`. `mode=soft` keeps configs/audit but truncates data + checkpoints + watermarks. `mode=dry` (default) only prints the plan.
 
@@ -110,7 +110,7 @@ Uploads sample landing files, triggers one pipeline run, and verifies: run_log a
 * Alert thresholds are deployment defaults (failed_runs > 0, quarantine rate > 5%, stale sources > 0, rescue warnings > 0) — edit `resources/alerts.yml` before deploy to change
 * `system.billing.usage`-based costing in the target starts accruing from deploy time; the ~1-day telemetry lag in a new workspace is expected
 * The dashboard deploys with `embedCredentials` per the source file; adjust sharing in the target after deploy
-* This repo (github.com/kishore1st/MDD_Platform) is the canonical package. Before a release, re-run `MDD Deploy Prep` in the source workspace and re-sync changed files into the Git folder (bundle_configs currently holds 7 YAMLs — src_009 ships after the next Deploy Prep run)
+* This repo (github.com/kishore1st/MDD_Platform) is the canonical package. Before a release, re-run `MDD Deploy Prep` in the source workspace and re-sync changed files into the Git folder (bundle_configs now holds all 8 YAMLs incl. src_009_employee_billing, refreshed 2026-11-08)
 * The `mdd-lakehouse-framework` assistant skill (in the authoring user's `~/.assistant/skills/` folder) encodes onboarding/extension guidance — copy it to client users' skills folders for AI-assisted onboarding
 
 ## CI/CD (GitHub Actions)

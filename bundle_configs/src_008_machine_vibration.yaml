@@ -5,8 +5,8 @@ options:
   header: 'true'
   delimiter: ','
   multiLine: 'true'
-description: 'Machine vibration telemetry (MES) - composite key (timestamp, machine_id), PII: employee_phone + supplier_contact,
-  SCD1+SCD2 with liquid clustering'
+description: 'Machine vibration telemetry (MES) - composite key (timestamp, machine_id),
+  PII: employee_phone + supplier_contact, SCD1+SCD2 with liquid clustering'
 columns:
 - name: timestamp
   type: timestamp
@@ -74,6 +74,7 @@ business_keys:
 pii_columns:
   employee_phone: phone
   supplier_contact: email
+  phone_digits: phone
 quality_rules:
 - name: timestamp_not_null
   rule: not_null
@@ -116,7 +117,8 @@ quality_rules:
   pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
 bronze:
   target_table: mdd_platform.bronze.src_008_machine_vibration
-  comment: Raw landing zone for machine vibration telemetry (MES) - SCD1+SCD2 onboarding test source
+  comment: Raw landing zone for machine vibration telemetry (MES) - SCD1+SCD2 onboarding
+    test source
   partition_by:
   - _ingest_date
   table_properties:
@@ -129,7 +131,8 @@ bronze:
 quarantine_action: route_and_log
 silver:
   target_table: mdd_platform.silver.src_008_machine_vibration
-  comment: Conformed machine vibration telemetry - composite key (timestamp, machine_id), typed, deduped, SCD2 history
+  comment: Conformed machine vibration telemetry - composite key (timestamp, machine_id),
+    typed, deduped, SCD2 history
   business_keys:
   - timestamp
   - machine_id
@@ -143,3 +146,21 @@ silver:
   cluster_by:
   - timestamp
   - machine_id
+  transformations:
+  - column: temperature_f
+    type: decimal(8,2)
+    comment: Derived sensor temperature in Fahrenheit (cast + arithmetic)
+    expr: round(cast(temperature_c as decimal(8,2)) * 1.8 + 32, 2)
+  - column: operator_name_std
+    type: varchar(100)
+    comment: Normalized operator name (string ops)
+    expr: upper(trim(operator_name))
+  - column: supplier_domain
+    type: varchar(100)
+    comment: Vendor support domain extracted from supplier email (regex extract)
+    expr: regexp_extract(supplier_contact, '@(.+)$', 1)
+  - column: phone_digits
+    type: varchar(20)
+    comment: Derived staff phone digits - PII, masked at silver (regex replace)
+    expr: regexp_replace(employee_phone, '[^0-9]', '')
+  exclude_columns: []

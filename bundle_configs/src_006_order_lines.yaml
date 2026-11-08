@@ -78,3 +78,5 @@ silver:
   cluster_by:
   - order_id
   - line_no
+  transformations: []
+  exclude_columns: []

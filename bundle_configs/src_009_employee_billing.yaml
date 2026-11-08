@@ -1,0 +1,134 @@
+source_name: src_009_employee_billing
+source_path: /Volumes/mdd_platform/landing/source_files/src_009_employee_billing
+format: csv
+options:
+  header: 'true'
+  delimiter: ','
+  multiLine: 'true'
+description: Employee billing + project cost allocation (HR) - SCD1; silver splits
+  Full Name into first/last, renames manager/project, casts financials (transformations)
+columns:
+- name: employee_id
+  type: string
+  length: 50
+  comment: Unique employee identifier (quasi-identifier; business key - unmasked)
+- name: full_name
+  type: string
+  length: 150
+  comment: PII - employee full name (masked at silver, tagged at bronze)
+- name: manager
+  type: string
+  length: 150
+  comment: Reporting manager name (direct identifier; clear text per spec)
+- name: project
+  type: string
+  length: 150
+  comment: Assigned project name
+- name: hour_price
+  type: decimal(10,2)
+  comment: Hourly billing rate in USD (sensitive financial)
+- name: project_cost
+  type: decimal(12,2)
+  comment: Total project cost allocation in USD (sensitive financial)
+- name: department
+  type: string
+  length: 120
+  comment: Employee department
+business_keys:
+- employee_id
+pii_columns:
+  full_name: name
+  first_name: name
+  last_name: name
+quality_rules:
+- name: employee_id_not_null
+  rule: not_null
+  column: employee_id
+- name: employee_id_format
+  rule: regex
+  column: employee_id
+  pattern: ^EMP[0-9]{5}$
+- name: full_name_not_null
+  rule: not_null
+  column: full_name
+- name: project_not_null
+  rule: not_null
+  column: project
+- name: hour_price_not_null
+  rule: not_null
+  column: hour_price
+- name: project_cost_not_null
+  rule: not_null
+  column: project_cost
+- name: hour_price_range
+  rule: range
+  column: hour_price
+  min: 0
+  max: 10000
+- name: project_cost_range
+  rule: range
+  column: project_cost
+  min: 0
+  max: 10000000
+- name: manager_not_null
+  rule: not_null
+  column: manager
+bronze:
+  target_table: mdd_platform.bronze.src_009_employee_billing
+  comment: Raw landing zone for employee billing + project cost (HR) - SCD1 onboarding
+    source
+  partition_by:
+  - _ingest_date
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: bronze
+    mdd.source_system: HR
+  exception_rules:
+    max_rescued_pct: 15
+    on_exceed: warn
+quarantine_action: route_and_log
+silver:
+  target_table: mdd_platform.silver.src_009_employee_billing
+  comment: Conformed employee billing - typed, deduped, name split + renames + casts
+    via transformations, SCD1
+  business_keys:
+  - employee_id
+  merge_keys:
+  - employee_id
+  merge_strategy: scd1
+  cluster_by:
+  - employee_id
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: silver
+  transformations:
+  - column: first_name
+    type: varchar(75)
+    comment: Split from Full Name (before first space) - PII, masked at silver
+    expr: regexp_extract(full_name, '^([^ ]+)', 1)
+  - column: last_name
+    type: varchar(75)
+    comment: Split from Full Name (after first space) - PII, masked at silver
+    expr: regexp_extract(full_name, '^[^ ]+ +(.+)$', 1)
+  - column: manager_name
+    type: varchar(150)
+    comment: Renamed from manager for clarity
+    expr: manager
+  - column: project_name
+    type: varchar(150)
+    comment: Renamed from project for clarity
+    expr: project
+  - column: hourly_rate_usd
+    type: decimal(10,2)
+    comment: Hourly billing rate cast to standard decimal (sensitive financial)
+    expr: cast(hour_price as decimal(10,2))
+  - column: project_cost_usd
+    type: decimal(12,2)
+    comment: Project cost cast to standard decimal (sensitive financial)
+    expr: cast(project_cost as decimal(12,2))
+  exclude_columns:
+  - full_name
+  - manager
+  - project
+  - hour_price
+  - project_cost

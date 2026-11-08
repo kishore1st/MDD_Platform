@@ -4,7 +4,7 @@
 # MAGIC # MDD Config Loader
 # MAGIC
 # MAGIC **Trigger:** file arrival in `/Volumes/mdd_platform/config/config_files/` (job-level file-arrival trigger, 60s debounce; also runs via Run Now) — NOT on every pipeline run.
-# MAGIC > Note: the file-arrival trigger is currently **PAUSED** in the job settings — unpause it in the Jobs UI to activate. Explicit runs (Run Now, and the schema-evolution runbook's synchronous call) always work.
+# MAGIC > Note: the file-arrival trigger is **UNPAUSED** (enabled 2026-11-08) — new/changed YAML configs dropped into the volume auto-load within ~2 min. Explicit runs (Run Now, and the schema-evolution runbook's synchronous call) also always work.
 # MAGIC
 # MAGIC Responsibilities:
 # MAGIC 1. **Load/refresh YAML configs** into `mdd_platform.config.pipeline_configs` (idempotent MERGE; reloads never flip the `active` flag).

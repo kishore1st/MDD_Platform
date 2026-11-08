@@ -99,3 +99,5 @@ silver:
     mdd.quality_layer: silver
   cluster_by:
   - customer_id
+  transformations: []
+  exclude_columns: []
