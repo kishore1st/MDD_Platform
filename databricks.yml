@@ -26,7 +26,7 @@ variables:
     description: >-
       Name of the SQL warehouse in the TARGET workspace used by the Ops Dashboard
       and the four MDD alerts. Override with --var="warehouse_name=<name>" or edit here.
-    default: Starter Warehouse
+    default: Serverless Starter Warehouse
   warehouse_id:
     description: Resolved automatically from warehouse_name. Do not set manually.
     lookup:
