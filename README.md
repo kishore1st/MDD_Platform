@@ -112,3 +112,15 @@ Uploads sample landing files, triggers one pipeline run, and verifies: run_log a
 * The dashboard deploys with `embedCredentials` per the source file; adjust sharing in the target after deploy
 * This repo (github.com/kishore1st/MDD_Platform) is the canonical package. Before a release, re-run `MDD Deploy Prep` in the source workspace and re-sync changed files into the Git folder (bundle_configs currently holds 7 YAMLs — src_009 ships after the next Deploy Prep run)
 * The `mdd-lakehouse-framework` assistant skill (in the authoring user's `~/.assistant/skills/` folder) encodes onboarding/extension guidance — copy it to client users' skills folders for AI-assisted onboarding
+
+## CI/CD (GitHub Actions)
+
+* **`ci.yml`** — runs `databricks bundle validate --strict -t prod` on every pull request and push to `main`. Uses repo-level secrets for a **source-workspace service principal**.
+* **`deploy.yml`** (`deploy-client`) — manual workflow-dispatch deploy to a client: pick a **GitHub environment** (e.g. `client-acme`) that holds that client's secrets, and pass `catalog_name` (+ `warehouse_name` if different). It validates, then deploys; run `mdd_target_setup` + `mdd_target_smoke_test` afterwards (CLI or the client's Jobs UI).
+
+**Secrets setup (per workspace):**
+
+1. Databricks workspace → Settings → Identity and access → Service principals → New — give it workspace admin on client workspaces (needs CREATE CATALOG + deploy rights)
+2. On the SP's OAuth tab → Generate secret
+3. GitHub → Settings → Secrets and variables → Actions: add `DATABRICKS_HOST`, `DATABRICKS_CLIENT_ID`, `DATABRICKS_CLIENT_SECRET` — at **repo level** for `ci.yml` (source workspace), and inside a **per-client environment** for `deploy.yml` (Settings → Environments → New environment → add the same three secrets)
+4. Recommended: protect `main` (require the `ci` workflow to pass before merge) and require PRs for all changes

@@ -1,0 +1,48 @@
+name: deploy-client
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "GitHub environment holding the CLIENT workspace secrets (e.g. client-acme)"
+        required: true
+        type: string
+      catalog_name:
+        description: "Catalog name to create/populate in the client workspace"
+        required: true
+        type: string
+      warehouse_name:
+        description: "Client SQL warehouse name"
+        required: false
+        default: "Starter Warehouse"
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Databricks CLI
+        uses: databricks/setup-cli@main
+      - name: Bundle validate (strict)
+        run: databricks bundle validate --strict -t prod --var="catalog_name=${{ inputs.catalog_name }}" --var="warehouse_name=${{ inputs.warehouse_name }}"
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Deploy bundle
+        run: |
+          databricks bundle deploy -t prod \
+            --var="catalog_name=${{ inputs.catalog_name }}" \
+            --var="warehouse_name=${{ inputs.warehouse_name }}"
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Post-deploy next steps
+        run: |
+          echo "Deployed. Bootstrap + verify (from a machine logged into the client workspace, or the client Jobs UI):"
+          echo "  databricks bundle run mdd_target_setup -t prod --var=\"catalog_name=${{ inputs.catalog_name }}\" --var=\"warehouse_name=${{ inputs.warehouse_name }}\""
+          echo "  databricks bundle run mdd_target_smoke_test -t prod --var=\"catalog_name=${{ inputs.catalog_name }}\" --var=\"warehouse_name=${{ inputs.warehouse_name }}\""
