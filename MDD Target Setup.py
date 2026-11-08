@@ -49,7 +49,7 @@ import io, json, time, posixpath
 from databricks.sdk import WorkspaceClient
 
 w = WorkspaceClient()
-BUNDLE_WS = "/Workspace/MDD_DataPlatform"
+BUNDLE_WS = "/Workspace/MDD_DataPlatform/files"
 
 def job_id_by_name(name):
     for j in w.jobs.list():
