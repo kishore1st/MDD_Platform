@@ -14,7 +14,7 @@ jobs:
       - name: Setup Databricks CLI
         uses: databricks/setup-cli@main
       - name: Bundle validate (strict)
-        run: databricks bundle validate --strict -t prod
+        run: databricks bundle validate --strict -t prod --var="warehouse_name=Serverless Starter Warehouse"
         env:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
