@@ -19,7 +19,16 @@ resources:
         enabled: true
       performance_target: STANDARD
       tasks:
+        - task_key: sync_configs
+          # Config-sync first: YAMLs dropped into the config volume are MERGEd into the
+          # control table automatically — no manual loader run needed for new sources.
+          notebook_task:
+            notebook_path: "../MDD Config Loader.py"
+            base_parameters:
+              catalog_name: ${var.catalog_name}
         - task_key: run_mdd_framework
+          depends_on:
+            - task_key: sync_configs
           notebook_task:
             notebook_path: "../MDD Metadata-Driven Pipeline Framework.py"
             base_parameters:
@@ -36,9 +45,9 @@ resources:
             notebook_path: "../MDD Config Loader.py"
             base_parameters:
               catalog_name: ${var.catalog_name}
-      # NOTE: no schedule/trigger by design (matches source workspace). Optionally add a
-      # file-arrival trigger on /Volumes/${var.catalog_name}/config/config_files AFTER the
-      # target setup job has created the volume (see README.md, step 5).
+      # NOTE: no schedule needed — the orchestration job runs this loader as its sync_configs
+      # task before every framework run, so YAMLs dropped into the config volume are picked
+      # up automatically on the next hourly run.
 
     mdd_runbook:
       name: MDD On-Demand Runbook Job
@@ -109,6 +118,13 @@ resources:
             notebook_path: "../MDD Ops View Builder (v_file_lifecycle_cost).py"
             base_parameters:
               catalog_name: ${var.catalog_name}
+        - task_key: build_source_driven_views
+          # v_freshness_sla / v_late_arrivals / v_quarantine_detail / v_rescued_data —
+          # generated from THIS catalog's active sources (never from captured DDLs).
+          notebook_task:
+            notebook_path: "../MDD Ops View Builder (source-driven views).py"
+            base_parameters:
+              catalog_name: ${var.catalog_name}
 
     # ---------- Deployment utility jobs (new) ----------
 
@@ -123,10 +139,11 @@ resources:
             notebook_path: "../MDD Target Setup.py"
             base_parameters:
               catalog_name: ${var.catalog_name}
-      # Creates the ${var.catalog_name} catalog (schemas + volumes), loads the 7 YAML configs
-      # (with the catalog substituted into each YAML), bootstraps the control table, runs
-      # the framework once to create all tables, then applies the captured ops views /
-      # metric views and patches all notebooks + dashboard with target job IDs and catalog.
+      # Creates the ${var.catalog_name} catalog (schemas + volumes), loads the reference YAML
+      # config (with the catalog substituted into the YAML), bootstraps the control table, runs
+      # the framework once to create all tables, then applies the captured GENERIC ops views /
+      # metric views, regenerates the source-driven views via the builders, and patches all
+      # notebooks + dashboard with target job IDs and catalog.
 
     mdd_target_cleanup:
       name: MDD Target Cleanup (mode)
