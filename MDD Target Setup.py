@@ -80,8 +80,9 @@ def run_job_and_wait(name, timeout_minutes=25):
 def ws_read_text(path):
     """Read a workspace file as text (SDK download)."""
     buf = io.BytesIO()
-    w.workspace.download(path, output=buf)
-    return buf.getvalue().decode("utf-8")
+    resp = w.workspace.download(path)
+    data = resp.content if hasattr(resp, "content") else resp.read()
+    return data.decode("utf-8")
 
 def copy_ws_dir_to_volume(ws_dir, volume_dir, text_fn=None):
     """Copy every file under a workspace directory into a UC volume directory.

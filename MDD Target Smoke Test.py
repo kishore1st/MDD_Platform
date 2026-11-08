@@ -26,7 +26,7 @@ from databricks.sdk import WorkspaceClient
 
 w = WorkspaceClient()
 CAT = "mdd_platform"
-BUNDLE_WS = "/Workspace/MDD_DataPlatform"
+BUNDLE_WS = "/Workspace/MDD_DataPlatform/files"
 SAMPLE_SOURCES = ["src_001_customers", "src_006_order_lines"]  # kept in sync with bundle_assets/landing_samples
 
 def job_id_by_name(name):
@@ -54,9 +54,9 @@ def run_job_and_wait(name, timeout_minutes=25):
         time.sleep(15)
 
 def ws_read_text(path):
-    buf = io.BytesIO()
-    w.workspace.download(path, output=buf)
-    return buf.getvalue().decode("utf-8")
+    resp = w.workspace.download(path)
+    data = resp.content if hasattr(resp, "content") else resp.read()
+    return data.decode("utf-8")
 
 print("helpers ready")
 
