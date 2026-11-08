@@ -116,7 +116,7 @@ Uploads sample landing files, triggers one pipeline run, and verifies: run_log a
 ## CI/CD (GitHub Actions)
 
 * **`ci.yml`** — runs `databricks bundle validate --strict -t prod` on every pull request and push to `main`. Uses repo-level secrets for a **source-workspace service principal**.
-* **`deploy.yml`** (`deploy-client`) — manual workflow-dispatch deploy to a client: pick a **GitHub environment** (e.g. `client-acme`) that holds that client's secrets, and pass `catalog_name` (+ `warehouse_name` if different). It validates, then deploys; run `mdd_target_setup` + `mdd_target_smoke_test` afterwards (CLI or the client's Jobs UI).
+* **`deploy.yml`** (`deploy-client`) — manual workflow-dispatch deploy to a client: pick a **GitHub environment** (e.g. `9pillers`) that holds that client's secrets, and pass `catalog_name` (+ `warehouse_name` if different). It validates, then deploys — and with **run_setup_and_smoke** ticked it also runs `mdd_target_setup` + `mdd_target_smoke_test` (~25 min), so the entire client deploy can be executed from the GitHub Actions UI with zero laptop commands.
 
 **Secrets setup (per workspace):**
 

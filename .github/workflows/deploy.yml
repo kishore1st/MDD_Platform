@@ -16,6 +16,11 @@ on:
         required: false
         default: "Starter Warehouse"
         type: string
+      run_setup_and_smoke:
+        description: "Also run mdd_target_setup + mdd_target_smoke_test after deploy (~25 min) — full client deploy from GitHub"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   deploy:
@@ -41,7 +46,22 @@ jobs:
           DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
           DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
           DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
-      - name: Post-deploy next steps
+      - name: Bootstrap target (setup)
+        if: ${{ inputs.run_setup_and_smoke }}
+        run: databricks bundle run mdd_target_setup -t prod --var="catalog_name=${{ inputs.catalog_name }}" --var="warehouse_name=${{ inputs.warehouse_name }}"
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Smoke test (13 checks must PASS)
+        if: ${{ inputs.run_setup_and_smoke }}
+        run: databricks bundle run mdd_target_smoke_test -t prod --var="catalog_name=${{ inputs.catalog_name }}" --var="warehouse_name=${{ inputs.warehouse_name }}"
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+      - name: Post-deploy next steps (manual mode)
+        if: ${{ ! inputs.run_setup_and_smoke }}
         run: |
           echo "Deployed. Bootstrap + verify (from a machine logged into the client workspace, or the client Jobs UI):"
           echo "  databricks bundle run mdd_target_setup -t prod --var=\"catalog_name=${{ inputs.catalog_name }}\" --var=\"warehouse_name=${{ inputs.warehouse_name }}\""
