@@ -1,0 +1,39 @@
+version: 1.1
+
+source: mdd_platform.ops.v_pipeline_runs
+
+comment: "Pipeline run KPIs for the MDD platform (runs, throughput, failures)"
+
+dimensions:
+  - name: Run Layer
+    expr: layer
+
+  - name: Run Status
+    expr: status
+
+  - name: Source
+    expr: source_name
+
+measures:
+  - name: Total Runs
+    expr: COUNT(1)
+    comment: Total pipeline stage executions
+
+  - name: Failed Runs
+    expr: SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END)
+    comment: Failed stage executions
+
+  - name: Rows Read
+    expr: SUM(rows_read)
+
+  - name: Rows Merged
+    expr: SUM(rows_merged)
+
+  - name: Rows Quarantined
+    expr: SUM(rows_quarantined)
+
+  - name: Rows Rescued
+    expr: SUM(rows_rescued)
+
+  - name: Avg Duration Seconds
+    expr: AVG(duration_seconds)

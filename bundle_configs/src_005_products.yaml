@@ -1,0 +1,82 @@
+source_name: src_005_products
+source_path: /Volumes/mdd_platform/landing/source_files/src_005_products
+format: csv
+options:
+  header: 'true'
+  delimiter: ','
+  multiLine: 'true'
+description: Product catalog from PIM - daily batch exports
+columns:
+- name: product_id
+  type: string
+  length: 20
+  comment: Business key - unique product id
+- name: product_name
+  type: string
+  length: 200
+  comment: Product display name
+- name: category
+  type: string
+  length: 20
+  comment: Product category
+- name: price
+  type: decimal(10,2)
+  comment: List price
+- name: stock_qty
+  type: int
+  comment: Units in stock
+- name: supplier_id
+  type: string
+  length: 20
+  comment: FK to supplier
+- name: launch_date
+  type: date
+  comment: Product launch date
+business_keys:
+- product_id
+pii_columns: {}
+quality_rules:
+- name: product_id_not_null
+  rule: not_null
+  column: product_id
+- name: price_range
+  rule: range
+  column: price
+  min: 0.0
+  max: 50000.0
+- name: category_allowed
+  rule: allowed
+  column: category
+  values:
+  - electronics
+  - apparel
+  - grocery
+  - home
+  - sports
+  - toys
+bronze:
+  target_table: mdd_platform.bronze.src_005_products
+  comment: Raw landing zone for PIM product catalog - untyped strings with rescue
+  partition_by:
+  - _ingest_date
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: bronze
+    mdd.source_system: PIM
+  exception_rules:
+    max_rescued_pct: 15
+    on_exceed: warn
+quarantine_action: route_and_log
+merge_strategy: scd1
+silver:
+  target_table: mdd_platform.silver.src_005_products
+  comment: Conformed product catalog - typed, deduped
+  business_keys:
+  - product_id
+  merge_keys:
+  - product_id
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: silver
+  cluster_by:
+  - product_id

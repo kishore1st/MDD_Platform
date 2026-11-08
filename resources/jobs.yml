@@ -1,0 +1,142 @@
+# MDD DataPlatform — job resources.
+# Notebook paths are relative to resources/*.yml => "../<notebook>.py" at bundle root.
+# After `databricks workspace export-dir /MDD_DataPlatform <local>`, the notebooks exist
+# as <notebook>.py SOURCE files next to this folder.
+
+resources:
+  jobs:
+
+    # ---------- Original operational jobs (mirror of source workspace) ----------
+
+    mdd_orchestration:
+      name: MDD Pipeline Orchestration Job
+      schedule:
+        quartz_cron_expression: "0 0 * * * ?"
+        timezone_id: UTC
+        pause_status: UNPAUSED
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      performance_target: STANDARD
+      tasks:
+        - task_key: run_mdd_framework
+          notebook_task:
+            notebook_path: "../MDD Metadata-Driven Pipeline Framework.py"
+
+    mdd_config_loader:
+      name: MDD Config Loader Job
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: run_config_loader
+          notebook_task:
+            notebook_path: "../MDD Config Loader.py"
+      # NOTE: no schedule/trigger by design (matches source workspace). Optionally add a
+      # file-arrival trigger on /Volumes/${var.catalog_name}/config/config_files AFTER the
+      # target setup job has created the volume (see README.md, step 5).
+
+    mdd_runbook:
+      name: MDD On-Demand Runbook Job
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: run_on_demand_runbook
+          notebook_task:
+            notebook_path: "../MDD On-Demand Runbook.py"
+            base_parameters:
+              source_name: ""
+              mode: dry
+              restore_layers: silver
+              restore_ts: ""
+              confirm: "false"
+
+    mdd_schema_evolution:
+      name: MDD Schema Evolution Runbook Job
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: run_schema_evolution
+          notebook_task:
+            notebook_path: "../MDD Schema Evolution Runbook.py"
+      # Manual Run Now job — set the runbook's widgets (source_name, action, ...) in the
+      # Run Now dialog. All actions are dry_run/confirm gated and idempotent.
+
+    mdd_maintenance:
+      name: MDD Platform Maintenance Job
+      schedule:
+        quartz_cron_expression: "0 0 2 * * ?"
+        timezone_id: UTC
+        pause_status: UNPAUSED
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: run_maintenance
+          notebook_task:
+            notebook_path: "../MDD Platform Maintenance (OPTIMIZE + VACUUM).py"
+
+    mdd_ops_views_refresh:
+      name: MDD Ops Views Refresh Job
+      schedule:
+        quartz_cron_expression: "0 0 3 * * ?"
+        timezone_id: UTC
+        pause_status: UNPAUSED
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: build_v_storage_footprint
+          notebook_task:
+            notebook_path: "../MDD Ops View Builder (v_storage_footprint).py"
+        - task_key: build_v_file_lifecycle_cost
+          depends_on:
+            - task_key: build_v_storage_footprint
+          notebook_task:
+            notebook_path: "../MDD Ops View Builder (v_file_lifecycle_cost).py"
+
+    # ---------- Deployment utility jobs (new) ----------
+
+    mdd_target_setup:
+      name: MDD Target Setup (one-shot)
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: run_target_setup
+          notebook_task:
+            notebook_path: "../MDD Target Setup.py"
+            base_parameters:
+              catalog_name: ${var.catalog_name}
+      # Creates the ${var.catalog_name} catalog (schemas + volumes), loads the 7 YAML configs
+      # (with the catalog substituted into each YAML), bootstraps the control table, runs
+      # the framework once to create all tables, then applies the captured ops views /
+      # metric views and patches all notebooks + dashboard with target job IDs and catalog.
+
+    mdd_target_cleanup:
+      name: MDD Target Cleanup (mode)
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: run_target_cleanup
+          notebook_task:
+            notebook_path: "../MDD Target Cleanup.py"
+            base_parameters:
+              mode: dry
+              confirm: "false"
+      # mode: dry | soft | full — see the notebook documentation cell.
+
+    mdd_target_smoke_test:
+      name: MDD Target Smoke Test (one-shot)
+      max_concurrent_runs: 1
+      queue:
+        enabled: true
+      tasks:
+        - task_key: run_target_smoke_test
+          notebook_task:
+            notebook_path: "../MDD Target Smoke Test.py"
+      # Loads sample landing files, triggers one pipeline run, and verifies
+      # run_log success, silver rows, PII masks, ops views, and dashboard dataset SQL.

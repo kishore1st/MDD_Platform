@@ -1,0 +1,30 @@
+version: 1.1
+
+source: mdd_platform.ops.v_pii_coverage
+
+comment: PII governance coverage KPIs
+
+dimensions:
+  - name: Table
+    expr: table_name
+
+  - name: PII Type
+    expr: declared_pii_type
+
+  - name: Governance Status
+    expr: governance_status
+
+measures:
+  - name: PII Columns
+    expr: COUNT(1)
+    comment: Declared PII columns
+
+  - name: Fully Governed
+    expr: SUM(CASE WHEN governance_status = 'fully_governed' THEN 1 ELSE 0 END)
+
+  - name: Governance Gaps
+    expr: SUM(CASE WHEN governance_status != 'fully_governed' THEN 1 ELSE 0 END)
+
+  - name: Coverage Pct
+    expr: "100.0 * SUM(CASE WHEN governance_status = 'fully_governed' THEN 1 ELSE\
+      \ 0 END) / GREATEST(COUNT(1), 1)"

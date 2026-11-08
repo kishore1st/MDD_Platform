@@ -1,0 +1,101 @@
+source_name: src_001_customers
+source_path: /Volumes/mdd_platform/landing/source_files/src_001_customers
+format: csv
+options:
+  header: 'true'
+  delimiter: ','
+  multiLine: 'true'
+description: Customer master feed from CRM - daily batch exports
+columns:
+- name: customer_id
+  type: string
+  length: 20
+  comment: Business key - unique customer id
+- name: first_name
+  type: string
+  length: 100
+  comment: 'Customer first name (PII: name)'
+- name: last_name
+  type: string
+  length: 100
+  comment: 'Customer last name (PII: name)'
+- name: email
+  type: string
+  length: 255
+  comment: 'Contact email (PII: email)'
+- name: phone
+  type: string
+  length: 30
+  comment: 'Contact phone (PII: phone)'
+- name: address
+  type: string
+  length: 255
+  comment: 'Street address (PII: street_address)'
+- name: city
+  type: string
+  length: 100
+  comment: City name
+- name: country
+  type: string
+  length: 2
+  comment: ISO 3166-1 alpha-2 country code
+- name: signup_date
+  type: date
+  comment: Customer signup date
+- name: loyalty_tier
+  type: string
+  length: 10
+  comment: Loyalty tier (bronze/silver/gold/platinum)
+business_keys:
+- customer_id
+pii_columns:
+  first_name: name
+  last_name: name
+  email: email
+  phone: phone
+  address: street_address
+quality_rules:
+- name: customer_id_not_null
+  rule: not_null
+  column: customer_id
+- name: email_not_null
+  rule: not_null
+  column: email
+- name: email_format
+  rule: regex
+  column: email
+  pattern: ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$
+- name: tier_allowed
+  rule: allowed
+  column: loyalty_tier
+  values:
+  - bronze
+  - silver
+  - gold
+  - platinum
+bronze:
+  target_table: mdd_platform.bronze.src_001_customers
+  comment: Raw landing zone for CRM customer feed - untyped strings with rescue
+  partition_by:
+  - _ingest_date
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: bronze
+    mdd.source_system: CRM
+  exception_rules:
+    max_rescued_pct: 15
+    on_exceed: warn
+quarantine_action: route_and_log
+merge_strategy: scd1
+silver:
+  target_table: mdd_platform.silver.src_001_customers
+  comment: Conformed customer master - typed, deduped, PII-masked
+  business_keys:
+  - customer_id
+  merge_keys:
+  - customer_id
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: silver
+  cluster_by:
+  - customer_id

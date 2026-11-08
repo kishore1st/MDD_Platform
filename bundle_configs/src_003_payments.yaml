@@ -1,0 +1,83 @@
+source_name: src_003_payments
+source_path: /Volumes/mdd_platform/landing/source_files/src_003_payments
+format: csv
+options:
+  header: 'true'
+  delimiter: ','
+  multiLine: 'true'
+description: Payment transactions from PSP - daily batch exports
+columns:
+- name: payment_id
+  type: string
+  length: 20
+  comment: Business key - unique payment id
+- name: order_id
+  type: string
+  length: 20
+  comment: FK to src_002_orders
+- name: payment_method
+  type: string
+  length: 20
+  comment: Payment method used
+- name: amount
+  type: decimal(10,2)
+  comment: Payment amount
+- name: card_last4
+  type: string
+  length: 4
+  comment: 'Last 4 digits of card (PII: financial)'
+- name: payment_date
+  type: date
+  comment: Payment date
+- name: status
+  type: string
+  length: 15
+  comment: Payment status
+business_keys:
+- payment_id
+pii_columns:
+  card_last4: financial
+quality_rules:
+- name: payment_id_not_null
+  rule: not_null
+  column: payment_id
+- name: amount_range
+  rule: range
+  column: amount
+  min: 0.0
+  max: 100000.0
+- name: method_allowed
+  rule: allowed
+  column: payment_method
+  values:
+  - card
+  - paypal
+  - bank_transfer
+  - wallet
+  - crypto
+bronze:
+  target_table: mdd_platform.bronze.src_003_payments
+  comment: Raw landing zone for PSP payment feed - untyped strings with rescue
+  partition_by:
+  - _ingest_date
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: bronze
+    mdd.source_system: PSP
+  exception_rules:
+    max_rescued_pct: 15
+    on_exceed: warn
+quarantine_action: route_and_log
+merge_strategy: scd1
+silver:
+  target_table: mdd_platform.silver.src_003_payments
+  comment: Conformed payment transactions - typed, deduped, card data masked
+  business_keys:
+  - payment_id
+  merge_keys:
+  - payment_id
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: silver
+  cluster_by:
+  - payment_id

@@ -1,0 +1,11 @@
+# MDD DataPlatform — Ops Dashboard (8 pages, 27 datasets over mdd_platform.ops views).
+# The lvdash.json is the same file as in the source workspace; the DAB deploy imports it
+# as a real dashboard in the target workspace and runs its datasets on the resolved warehouse.
+# The underlying views/tables must exist first — run the setup + smoke test jobs after deploy.
+
+resources:
+  dashboards:
+    mdd_ops_dashboard:
+      display_name: "MDD Platform — Ops Dashboard"
+      file_path: "../MDD Platform — Ops Dashboard.lvdash.json"
+      warehouse_id: ${var.warehouse_id}

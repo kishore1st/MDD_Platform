@@ -1,0 +1,81 @@
+source_name: src_004_employees
+source_path: /Volumes/mdd_platform/landing/source_files/src_004_employees
+format: csv
+options:
+  header: 'true'
+  delimiter: ','
+  multiLine: 'true'
+description: Employee master data from HRIS - weekly batch exports
+columns:
+- name: employee_id
+  type: string
+  length: 20
+  comment: Business key - unique employee id
+- name: full_name
+  type: string
+  length: 150
+  comment: 'Employee full name (PII: name)'
+- name: email
+  type: string
+  length: 255
+  comment: 'Work email (PII: email)'
+- name: phone
+  type: string
+  length: 30
+  comment: 'Contact phone (PII: phone)'
+- name: department
+  type: string
+  length: 50
+  comment: Department name
+- name: hire_date
+  type: date
+  comment: Hire date
+- name: salary
+  type: decimal(12,2)
+  comment: 'Annual salary (PII: financial)'
+business_keys:
+- employee_id
+pii_columns:
+  full_name: name
+  email: email
+  phone: phone
+  salary: financial
+quality_rules:
+- name: employee_id_not_null
+  rule: not_null
+  column: employee_id
+- name: email_format
+  rule: regex
+  column: email
+  pattern: ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$
+- name: salary_range
+  rule: range
+  column: salary
+  min: 30000.0
+  max: 500000.0
+bronze:
+  target_table: mdd_platform.bronze.src_004_employees
+  comment: Raw landing zone for HRIS employee feed - untyped strings with rescue
+  partition_by:
+  - _ingest_date
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: bronze
+    mdd.source_system: HRIS
+  exception_rules:
+    max_rescued_pct: 15
+    on_exceed: warn
+quarantine_action: route_and_log
+merge_strategy: scd1
+silver:
+  target_table: mdd_platform.silver.src_004_employees
+  comment: Conformed employee master - typed, deduped, salary masked
+  business_keys:
+  - employee_id
+  merge_keys:
+  - employee_id
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: silver
+  cluster_by:
+  - employee_id

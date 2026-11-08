@@ -1,0 +1,145 @@
+source_name: src_008_machine_vibration
+source_path: /Volumes/mdd_platform/landing/source_files/src_008_machine_vibration
+format: csv
+options:
+  header: 'true'
+  delimiter: ','
+  multiLine: 'true'
+description: 'Machine vibration telemetry (MES) - composite key (timestamp, machine_id), PII: employee_phone + supplier_contact,
+  SCD1+SCD2 with liquid clustering'
+columns:
+- name: timestamp
+  type: timestamp
+  comment: Composite business key part 1 - sensor reading time (MES telemetry)
+- name: machine_id
+  type: string
+  length: 50
+  comment: Composite business key part 2 - physical asset identifier
+- name: operator_id
+  type: string
+  length: 50
+  comment: Corporate personnel identifier code (restricted)
+- name: operator_name
+  type: string
+  length: 100
+  comment: Technician full name (operational metric)
+- name: operator_email
+  type: string
+  length: 150
+  comment: Operator personal email handle (privacy-review candidate; format-checked)
+- name: employee_phone
+  type: string
+  length: 50
+  comment: PII - staff mobile contact (masked at silver, tagged at bronze)
+- name: shift_schedule
+  type: string
+  length: 20
+  comment: 'Processing window: Morning | Evening | Night'
+- name: manager_name
+  type: string
+  length: 100
+  comment: Shift supervisor name (operational metric)
+- name: mgr_contact
+  type: string
+  length: 150
+  comment: Shift manager escalation contact email
+- name: machine_supplier
+  type: string
+  length: 100
+  comment: Asset vendor name (protected supply classification)
+- name: supplier_contact
+  type: string
+  length: 150
+  comment: PII - vendor support contact email (masked at silver, tagged at bronze)
+- name: temperature_c
+  type: decimal(6,2)
+  comment: 'Sensor: line temperature in Celsius'
+- name: vibration_mms
+  type: decimal(5,2)
+  comment: 'Sensor: vibration displacement in mm/s'
+- name: pressure_psi
+  type: decimal(6,2)
+  comment: 'Sensor: line pressure in PSI'
+- name: status
+  type: string
+  length: 20
+  comment: 'Machine condition: Normal | Warning | Fault'
+- name: batch
+  type: string
+  length: 50
+  comment: Source batch token (Batch_1 / Batch_2 / Batch_3 / Batch_4)
+business_keys:
+- timestamp
+- machine_id
+pii_columns:
+  employee_phone: phone
+  supplier_contact: email
+quality_rules:
+- name: timestamp_not_null
+  rule: not_null
+  column: timestamp
+- name: machine_id_not_null
+  rule: not_null
+  column: machine_id
+- name: status_allowed
+  rule: allowed
+  column: status
+  values:
+  - Normal
+  - Warning
+  - Fault
+- name: shift_allowed
+  rule: allowed
+  column: shift_schedule
+  values:
+  - Morning
+  - Evening
+  - Night
+- name: temperature_range
+  rule: range
+  column: temperature_c
+  min: -40
+  max: 300
+- name: vibration_range
+  rule: range
+  column: vibration_mms
+  min: 0
+  max: 100
+- name: pressure_range
+  rule: range
+  column: pressure_psi
+  min: 0
+  max: 500
+- name: operator_email_format
+  rule: regex
+  column: operator_email
+  pattern: ^[^@\s]+@[^@\s]+\.[^@\s]+$
+bronze:
+  target_table: mdd_platform.bronze.src_008_machine_vibration
+  comment: Raw landing zone for machine vibration telemetry (MES) - SCD1+SCD2 onboarding test source
+  partition_by:
+  - _ingest_date
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: bronze
+    mdd.source_system: MES
+  exception_rules:
+    max_rescued_pct: 15
+    on_exceed: warn
+quarantine_action: route_and_log
+silver:
+  target_table: mdd_platform.silver.src_008_machine_vibration
+  comment: Conformed machine vibration telemetry - composite key (timestamp, machine_id), typed, deduped, SCD2 history
+  business_keys:
+  - timestamp
+  - machine_id
+  merge_keys:
+  - timestamp
+  - machine_id
+  merge_strategy: scd1+scd2
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: silver
+  cluster_by:
+  - timestamp
+  - machine_id

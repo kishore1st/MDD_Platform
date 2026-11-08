@@ -1,0 +1,85 @@
+source_name: src_002_orders
+source_path: /Volumes/mdd_platform/landing/source_files/src_002_orders
+format: csv
+options:
+  header: 'true'
+  delimiter: ','
+  multiLine: 'true'
+description: Order transactions from OMS - daily batch exports
+columns:
+- name: order_id
+  type: string
+  length: 20
+  comment: Business key - unique order id
+- name: customer_id
+  type: string
+  length: 20
+  comment: FK to src_001_customers
+- name: order_date
+  type: date
+  comment: Order placement date
+- name: amount
+  type: decimal(10,2)
+  comment: Order total amount
+- name: currency
+  type: string
+  length: 3
+  comment: ISO 4217 currency code
+- name: status
+  type: string
+  length: 10
+  comment: Order status
+- name: channel
+  type: string
+  length: 20
+  comment: Sales channel
+business_keys:
+- order_id
+pii_columns: {}
+quality_rules:
+- name: order_id_not_null
+  rule: not_null
+  column: order_id
+- name: amount_range
+  rule: range
+  column: amount
+  min: 0.0
+  max: 100000.0
+- name: status_allowed
+  rule: allowed
+  column: status
+  values:
+  - pending
+  - shipped
+  - delivered
+  - cancelled
+  - returned
+- name: order_date_not_null
+  rule: not_null
+  column: order_date
+bronze:
+  target_table: mdd_platform.bronze.src_002_orders
+  comment: Raw landing zone for OMS order feed - untyped strings with rescue
+  partition_by:
+  - _ingest_date
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: bronze
+    mdd.source_system: OMS
+  exception_rules:
+    max_rescued_pct: 15
+    on_exceed: warn
+quarantine_action: route_and_log
+merge_strategy: scd1
+silver:
+  target_table: mdd_platform.silver.src_002_orders
+  comment: Conformed order transactions - typed, deduped
+  business_keys:
+  - order_id
+  merge_keys:
+  - order_id
+  table_properties:
+    delta.deletedFileRetentionDuration: interval 7 days
+    mdd.quality_layer: silver
+  cluster_by:
+  - order_id

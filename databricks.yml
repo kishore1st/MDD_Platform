@@ -1,0 +1,44 @@
+# MDD DataPlatform — cross-workspace deployment bundle
+#
+# DEPLOY (from a machine with the Databricks CLI):
+#   1. databricks auth login --host https://<TARGET-WORKSPACE-URL>   (workspace admin or UC create-catalog rights)
+#   2. cd <this folder after export>
+#   3. databricks bundle validate --strict -t prod
+#   4. databricks bundle deploy -t prod
+#   5. Run the setup job: databricks bundle run mdd_target_setup -t prod
+#   6. Run the smoke test:  databricks bundle run mdd_target_smoke_test -t prod
+# See README.md for the full 1-2 hour runbook.
+
+bundle:
+  name: mdd_platform
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog_name:
+    description: >-
+      Name of the MDD catalog to create/populate in the TARGET workspace. Drives the
+      setup job (catalog/schemas/volumes, YAML copy, view/notebook/dashboard patching)
+      and the alert queries. Override with --var="catalog_name=<name>" or edit here.
+    default: mdd_platform
+  warehouse_name:
+    description: >-
+      Name of the SQL warehouse in the TARGET workspace used by the Ops Dashboard
+      and the four MDD alerts. Override with --var="warehouse_name=<name>" or edit here.
+    default: Starter Warehouse
+  warehouse_id:
+    description: Resolved automatically from warehouse_name. Do not set manually.
+    lookup:
+      warehouse: ${var.warehouse_name}
+
+targets:
+  prod:
+    default: true
+    mode: production
+    workspace:
+      # Deterministic deploy location in the target workspace: notebooks, configs,
+      # dashboard/alert sources and capture files all land here (same paths as source).
+      root_path: /Workspace/MDD_DataPlatform
+    run_as:
+      user_name: ${workspace.current_user.userName}

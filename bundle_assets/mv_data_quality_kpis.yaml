@@ -1,0 +1,29 @@
+version: 1.1
+
+source: mdd_platform.ops.v_dq_rule_metrics
+
+comment: Data quality KPIs per source and rule
+
+dimensions:
+  - name: Source
+    expr: source_name
+
+  - name: Rule
+    expr: rule_name
+
+  - name: Rule Status
+    expr: rule_status
+
+measures:
+  - name: Rules Evaluated
+    expr: COUNT(1)
+
+  - name: Total Failed Rows
+    expr: SUM(failed_rows)
+
+  - name: Total Passed Rows
+    expr: SUM(passed_rows)
+
+  - name: Failure Rate Pct
+    expr: "100.0 * SUM(failed_rows) / GREATEST(SUM(passed_rows) + SUM(failed_rows),\
+      \ 1)"

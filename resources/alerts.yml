@@ -1,0 +1,93 @@
+# MDD DataPlatform — four operational alerts (queries identical to the source
+# workspace .dbalert.json files). Thresholds/schedules here are deployment defaults:
+# adjust the numbers below before deploy if you want different values.
+# Alerts deploy PAUSED so they never fire before the target environment has data —
+# unpause them in the target workspace after the smoke test passes.
+# Subscriptions default to the deploying user; add more in the alert editor.
+
+resources:
+  alerts:
+
+    mdd_pipeline_run_failures:
+      display_name: MDD Pipeline Run Failures
+      query_text: "SELECT COUNT(*) AS failed_runs\nFROM ${var.catalog_name}.audit.run_log\nWHERE start_ts >= (CURRENT_TIMESTAMP() - INTERVAL 24 HOURS)\n  AND (status <> 'success' OR error_message IS NOT NULL)"
+      warehouse_id: ${var.warehouse_id}
+      evaluation:
+        comparison_operator: GREATER_THAN
+        source:
+          name: failed_runs
+          display: failed_runs
+        threshold:
+          value:
+            double_value: 0
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: ${workspace.current_user.userName}
+      schedule:
+        pause_status: PAUSED
+        quartz_cron_schedule: "0 15 * * * ?"
+        timezone_id: UTC
+
+    mdd_dq_quarantine_rate_breach:
+      display_name: MDD DQ Quarantine Rate Breach
+      query_text: "SELECT COALESCE(MAX(rate), 0) AS max_quarantine_pct FROM (\n  SELECT 100 * COALESCE(SUM(rows_quarantined), 0) / NULLIF(SUM(rows_read), 0) AS rate\n  FROM ${var.catalog_name}.audit.run_log\n  WHERE layer = 'silver' AND start_ts >= (CURRENT_TIMESTAMP() - INTERVAL 24 HOURS)\n  GROUP BY source_name) t"
+      warehouse_id: ${var.warehouse_id}
+      evaluation:
+        comparison_operator: GREATER_THAN
+        source:
+          name: max_quarantine_pct
+          display: max_quarantine_pct
+        threshold:
+          value:
+            double_value: 5
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: ${workspace.current_user.userName}
+      schedule:
+        pause_status: PAUSED
+        quartz_cron_schedule: "0 20 * * * ?"
+        timezone_id: UTC
+
+    mdd_watermark_staleness:
+      display_name: MDD Watermark Staleness
+      query_text: "SELECT COUNT(*) AS stale_sources FROM (\n  SELECT s.source_name\n  FROM ${var.catalog_name}.config.pipeline_configs s\n  LEFT JOIN ${var.catalog_name}.audit.silver_watermarks w ON w.source_name = s.source_name\n  WHERE s.active = true\n    AND COALESCE(w.last_processed_ingest_ts, TIMESTAMP '1900-01-01') < (CURRENT_TIMESTAMP() - INTERVAL 2 HOURS)) t"
+      warehouse_id: ${var.warehouse_id}
+      evaluation:
+        comparison_operator: GREATER_THAN
+        source:
+          name: stale_sources
+          display: stale_sources
+        threshold:
+          value:
+            double_value: 0
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: ${workspace.current_user.userName}
+      schedule:
+        pause_status: PAUSED
+        quartz_cron_schedule: "0 25 * * * ?"
+        timezone_id: UTC
+
+    mdd_bronze_rescue_warnings:
+      display_name: MDD Bronze Rescue Warnings
+      query_text: "SELECT COUNT(*) AS rescue_warnings\nFROM ${var.catalog_name}.audit.run_log\nWHERE layer = 'bronze' AND start_ts >= (CURRENT_TIMESTAMP() - INTERVAL 24 HOURS)\n  AND error_message IS NOT NULL"
+      warehouse_id: ${var.warehouse_id}
+      evaluation:
+        comparison_operator: GREATER_THAN
+        source:
+          name: rescue_warnings
+          display: rescue_warnings
+        threshold:
+          value:
+            double_value: 0
+        notification:
+          notify_on_ok: false
+          subscriptions:
+            - user_email: ${workspace.current_user.userName}
+      schedule:
+        pause_status: PAUSED
+        quartz_cron_schedule: "0 30 * * * ?"
+        timezone_id: UTC
