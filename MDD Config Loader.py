@@ -17,7 +17,10 @@
 import yaml, json, datetime
 from pyspark.sql import functions as F
 
-CAT = "mdd_platform"
+# Catalog: bundle variable — the loader job passes catalog_name as a task parameter
+# (default mdd_platform keeps interactive runs in the source workspace working).
+dbutils.widgets.text("catalog_name", "mdd_platform", "MDD catalog (bundle passes ${var.catalog_name})")
+CAT = dbutils.widgets.get("catalog_name").strip() or "mdd_platform"
 CFG_VOL = f"/Volumes/{CAT}/config/config_files"
 
 def _local(p): return p.replace("dbfs:", "").replace("file:", "")

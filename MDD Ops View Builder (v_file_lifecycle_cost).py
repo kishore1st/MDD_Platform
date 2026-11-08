@@ -18,11 +18,16 @@
 
 # DBTITLE 1,Build view from active configs
 # Parameters — adjust only these
-CAT = 'mdd_platform'                              # MDD platform catalog
+dbutils.widgets.text("catalog_name", "mdd_platform", "MDD catalog (bundle passes ${var.catalog_name})")
+CAT = dbutils.widgets.get("catalog_name").strip() or 'mdd_platform'  # MDD platform catalog
 VIEW_FQN = f'{CAT}.ops.v_file_lifecycle_cost'      # view to (re)generate
-ORCH_JOB_ID = '736782493336258'                    # MDD hourly pipeline job (runs bronze/DQ/silver)
+# Orchestration job id resolved by NAME at runtime — never hardcode workspace-specific ids.
+from databricks.sdk import WorkspaceClient as _WC
+ORCH_JOB_ID = str(next((j.job_id for j in _WC().jobs.list()
+                        if j.settings and j.settings.name == "MDD Pipeline Orchestration Job"), ""))
+assert ORCH_JOB_ID, "Orchestration job not found in this workspace — deploy the bundle first."
 STORAGE_VIEW = f'{CAT}.ops.v_storage_footprint'   # storage sizes source; BUILD THIS FIRST (its own builder notebook)
-LANDING_ROOT = '/Volumes/mdd_platform/landing/source_files/'
+LANDING_ROOT = f'/Volumes/{CAT}/landing/source_files/'
 
 import yaml
 

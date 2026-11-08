@@ -22,7 +22,9 @@ import json
 from databricks.sdk import WorkspaceClient
 
 w = WorkspaceClient()
-CAT = "mdd_platform"
+# Catalog: bundle variable (cleanup job passes catalog_name; default mdd_platform)
+dbutils.widgets.text("catalog_name", "mdd_platform", "MDD catalog (bundle passes ${var.catalog_name})")
+CAT = dbutils.widgets.get("catalog_name").strip() or "mdd_platform"
 try:
     mode = dbutils.widgets.get("mode")
     confirm = dbutils.widgets.get("confirm")
@@ -69,7 +71,7 @@ plan = {"soft": [f"TRUNCATE TABLE {CAT}.{s}.{t}" for s in data_schemas for t in 
                 + [f"rm -r /Volumes/{CAT}/config/checkpoints/*",
                    f"DELETE FROM {CAT}.audit.silver_watermarks"],
         "full": [f"DROP CATALOG {CAT} CASCADE",
-                 "CREATE CATALOG mdd_platform + schemas + volumes (skeleton re-bootstrap)"]}
+                 f"CREATE CATALOG {CAT} + schemas + volumes (skeleton re-bootstrap)"]}
 print(f"== PLAN for mode={mode} ==")
 for step in plan[mode]:
     print("  ", step)
@@ -116,7 +118,7 @@ if mode == "full":
         spark.sql(f"CREATE VOLUME IF NOT EXISTS {CAT}.{sch}.{vol}")
     print("  re-created empty catalog skeleton")
     print("\nFULL CLEANUP DONE — now run the 'MDD Target Setup' job to reload configs/views,"
-          " then upload your new landing files. /Volumes/mdd_platform/landing/source_files is empty;")
+          f" then upload your new landing files. /Volumes/{CAT}/landing/source_files is empty;")
     print("re-copy any landing files you want processed (the smoke test's samples are in the bundle at bundle_assets/landing_samples).")
 
 # COMMAND ----------

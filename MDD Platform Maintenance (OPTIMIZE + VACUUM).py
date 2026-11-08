@@ -8,7 +8,9 @@
 # COMMAND ----------
 
 # DBTITLE 1,Maintenance — OPTIMIZE + VACUUM all pipeline tables
-CAT = "mdd_platform"
+# Catalog: bundle variable (maintenance job passes catalog_name; default mdd_platform)
+dbutils.widgets.text("catalog_name", "mdd_platform", "MDD catalog (bundle passes ${var.catalog_name})")
+CAT = dbutils.widgets.get("catalog_name").strip() or "mdd_platform"
 RETAIN_HOURS = 168  # matches delta.deletedFileRetentionDuration = 7 days
 
 tables = [f"{CAT}.{r[0]}.{r[1]}" for r in spark.sql(f"""

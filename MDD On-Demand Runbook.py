@@ -10,7 +10,9 @@
 import datetime, json
 from pyspark.sql import functions as F
 
-CAT = "mdd_platform"
+# Catalog: bundle variable (runbook job passes catalog_name; default mdd_platform)
+dbutils.widgets.text("catalog_name", "mdd_platform", "MDD catalog (bundle passes ${var.catalog_name})")
+CAT = dbutils.widgets.get("catalog_name").strip() or "mdd_platform"
 FRAMEWORK_NB = "/MDD_DataPlatform/MDD Metadata-Driven Pipeline Framework"
 CKPT_VOL = f"/Volumes/{CAT}/config/checkpoints"
 
@@ -69,7 +71,7 @@ if MODE == "dry":
     print("Next: mode=load (safe, incremental) or mode=restore|rebuild with confirm=true.")
 elif MODE == "load":
     print(f"\nLOAD: running framework for {SRC} only (strategy follows YAML)...")
-    dbutils.notebook.run(FRAMEWORK_NB, 2400, {"source_name": SRC})
+    dbutils.notebook.run(FRAMEWORK_NB, 2400, {"source_name": SRC, "catalog_name": CAT})
     log_runbook(SRC, "success", "on-demand load via framework notebook")
 elif MODE == "restore":
     if not CONFIRM:
@@ -103,11 +105,11 @@ elif MODE == "rebuild":
     dbutils.fs.rm(f"{CKPT_VOL}/{SRC}", True)
     spark.sql(f"DELETE FROM {CAT}.audit.silver_watermarks WHERE source_name = '{SRC}'")
     print("dropped tables + checkpoint + watermark; running framework for full rebuild...")
-    dbutils.notebook.run(FRAMEWORK_NB, 2400, {"source_name": SRC})
+    dbutils.notebook.run(FRAMEWORK_NB, 2400, {"source_name": SRC, "catalog_name": CAT})
     # PII catchup: masks/tags died with the dropped tables — re-run the config loader so PII
     # governance is re-applied to the rebuilt tables (previously required a manual loader run).
     print("re-applying PII governance (config loader)...")
-    dbutils.notebook.run("/MDD_DataPlatform/MDD Config Loader", 1200)
+    dbutils.notebook.run("/MDD_DataPlatform/MDD Config Loader", 1200, {"catalog_name": CAT})
     log_runbook(SRC, "success", "full rebuild from source files + PII governance catchup")
 else:
     raise ValueError(f"unknown mode {MODE}")

@@ -18,9 +18,10 @@
 
 # DBTITLE 1,Build view from active configs
 # Parameters — adjust only these
-CAT = 'mdd_platform'
+dbutils.widgets.text("catalog_name", "mdd_platform", "MDD catalog (bundle passes ${var.catalog_name})")
+CAT = dbutils.widgets.get("catalog_name").strip() or 'mdd_platform'
 VIEW_FQN = f'{CAT}.ops.v_storage_footprint'
-LANDING_ROOT = '/Volumes/mdd_platform/landing/source_files/'
+LANDING_ROOT = f'/Volumes/{CAT}/landing/source_files/'
 
 import yaml
 
@@ -72,7 +73,7 @@ table_stats = "\nUNION ALL\n".join(
 
 COMMENT = (
  "Storage footprint of every managed MDD table (bronze/silver/silver_history/quarantine per source) plus raw "
- "landing files. CONFIG-DRIVEN: generated from active sources in mdd_platform.config.pipeline_configs - re-run "
+ f"landing files. CONFIG-DRIVEN: generated from active sources in {CAT}.config.pipeline_configs - re-run "
  "the builder notebook to include new sources (tables must exist; landing source folders are auto-discovered by "
  "the root scan). row_count is exact (count(*)). bytes_on_disk and file_count are EXACT from "
  "system.storage.table_metrics_history (latest daily snapshot, active_bytes; newly created tables first appear "

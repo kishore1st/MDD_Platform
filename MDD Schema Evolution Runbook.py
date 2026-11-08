@@ -53,7 +53,9 @@ except Exception:
 import yaml, json, re, time
 from databricks.sdk import WorkspaceClient
 
-CAT = "mdd_platform"
+# Catalog: bundle variable (schema-evolution job passes catalog_name; default mdd_platform)
+dbutils.widgets.text("catalog_name", "mdd_platform", "MDD catalog (bundle passes ${var.catalog_name})")
+CAT = dbutils.widgets.get("catalog_name").strip() or "mdd_platform"
 CFG_VOL = f"/Volumes/{CAT}/config/config_files"
 LOADER_NB = "/MDD_DataPlatform/MDD Config Loader"
 MASK_FN_TYPES = {"name", "email", "phone", "street_address", "financial"}  # mirrors config loader MASK_FN
@@ -173,7 +175,7 @@ def hourly_pipeline_busy():
 def run_config_loader():
     """Re-validate updated YAML, MERGE control table, apply PII masks/tags (catchup)."""
     try:
-        dbutils.notebook.run(LOADER_NB, 1200)
+        dbutils.notebook.run(LOADER_NB, 1200, {"catalog_name": CAT})
         return "config loader completed (notebook.run)"
     except Exception as e:
         jid = find_job_id("MDD Config Loader Job")
